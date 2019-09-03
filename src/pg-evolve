@@ -1,0 +1,49 @@
+#!/bin/sh
+set -e
+
+install_path="/opt/pg-evolve/install"
+evolutions_path="/opt/pg-evolve/evolutions"
+
+function error() {
+  local number=${1}
+  shift
+  local message=${1}
+  shift
+
+  echo "ERROR: ${message}" && exit ${number}
+}
+
+[ -z "${PGHOST}"  ] && error 2 "\$PGHOST is not defined"
+
+tables=$(psql -t -c "SELECT tablename FROM pg_catalog.pg_tables
+  WHERE schemaname != 'pg_catalog'
+  AND schemaname != 'information_schema';")
+
+if [ -z "$(echo ${tables})" ] || [ ! -z "$(echo ${tables} | grep 'pg_evolve_')" ]; then
+  # Install pg-evolve
+  find "${install_path}" -name "*.sql" | sort | while read script; do
+    psql -f "${script}"
+  done
+else
+  error 3 "Database was not created with pg-evolve! Aborting"
+fi
+
+evolutions_applied=$(psql -t -c "SELECT pg_evolve_get_evolutions();")
+evolutions=$(find "${evolutions_path}" -name "*.sql" -exec basename {} \; | sort)
+
+evolutions_count=$(printf "%s\n" "${evolutions}" | wc -l)
+
+for e in $(seq 1 ${evolutions_count})
+do
+  evolution_local=$(printf "%s\n" ${evolutions} | sed -n "${e}p")
+  evolution_remote=$(printf "%s\n" ${evolutions_applied} | sed -n "${e}p")
+  if [ -z "${evolution_remote}" ]; then
+    echo "Applying ${evolution_local}"
+    psql -f "${evolutions_path}/${evolution_local}"
+    psql -c "SELECT pg_evolve_applied('${evolution_local}', '${VERSION}')" > /dev/null
+  elif [ "${evolution_local}" = "${evolution_remote}" ]; then
+    echo "Evolution ${evolution_local} already applied. Skipping."
+  else
+    error 4 "Local evolution sequence number ${e} (${evolution_local}) does not match remote evolution: ${evolution_remote}"
+  fi
+done
