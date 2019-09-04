@@ -5,7 +5,7 @@ ENV PGEVOLVE_INSTALL_PATH="/opt/pg-evolve/install" \
 
 COPY src/pg-evolve /usr/local/bin
 
-RUN mkdir -p ${PGEVOLVE_INSTALL_PATH}
+RUN mkdir -p ${PGEVOLVE_EVOLUTIONS_PATH}
 
 COPY src/install ${PGEVOLVE_INSTALL_PATH}
 
