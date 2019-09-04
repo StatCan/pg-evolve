@@ -1,6 +1,8 @@
 SET pg_evolve.major TO 0;
 SET pg_evolve.minor TO 1;
 
+SET client_min_messages = error;
+
 CREATE TABLE IF NOT EXISTS pg_evolve_version (
   major int NOT NULL,
   minor int NOT NULL
@@ -22,7 +24,6 @@ BEGIN
   RETURN major > current_major OR (major = current_major AND minor > current_minor);
 END
 $need_upgrade$ LANGUAGE plpgsql;
-
 
 DO $$
 BEGIN
