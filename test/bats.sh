@@ -50,6 +50,14 @@ setup () {
     -v ${HOSTPWD}/test/2:/opt/pg-evolve/evolutions \
     pg-evolve:latest
 
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    pg-evolve:latest
+
     result="$(
       docker run --rm \
         -e PGHOST=${PGHOST} \
