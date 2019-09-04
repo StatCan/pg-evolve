@@ -30,6 +30,7 @@ services:
     command: ["./test/test.sh"]
     environment:
       << : *psql-env
+      HOSTPWD: ${PWD}
 
   # app:
   #   build: .
