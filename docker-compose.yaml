@@ -1,5 +1,12 @@
 version: '3.4'
 
+x-psql-env:
+  &psql-env
+  PGHOST: db
+  PGUSER: test_user
+  PGPASSWORD: test_pwd
+  PGDATABASE: test_db
+
 services:
   db:
     image: postgres:11-alpine
@@ -9,16 +16,27 @@ services:
       POSTGRES_USER: test_user
       POSTGRES_PASSWORD: test_pwd
       POSTGRES_DB: test_db
+    logging:
+      driver: none
 
-  app:
-    build: .
+  test:
+    build: test/
     depends_on:
       - db
     volumes:
-      - ./test:/opt/pg-evolve/evolutions
-    command: ["sh", "-c", "until psql -c '\\q' 2> /dev/null; do sleep 1; done && pg-evolve"]
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/opt/pg-evolve
+    working_dir: /opt/pg-evolve
+    command: ["./test/test.sh"]
     environment:
-      PGHOST: db
-      PGUSER: test_user
-      PGPASSWORD: test_pwd
-      PGDATABASE: test_db
+      << : *psql-env
+
+  # app:
+  #   build: .
+  #   depends_on:
+  #     - db
+  #   volumes:
+  #     - ./samples:/opt/pg-evolve/evolutions
+  #   command: ["sh", "-c", "until psql -c '\\q' 2> /dev/null; do sleep 1; done && pg-evolve && psql -c 'SELECT * FROM person;' && psql -c 'SELECT * FROM pg_evolve_evolutions'"]
+  #   environment:
+  #     << : *psql-env
