@@ -1,9 +1,6 @@
 #!/bin/sh
 set -e
 
-install_path="/opt/pg-evolve/install"
-evolutions_path="/opt/pg-evolve/evolutions"
-
 function error() {
   local number=${1}
   shift
@@ -14,6 +11,8 @@ function error() {
 }
 
 [ -z "${PGHOST}"  ] && error 2 "\$PGHOST is not defined"
+[ -z "${PGEVOLVE_INSTALL_PATH}"  ] && error 2 "\$PGEVOLVE_INSTALL_PATH is not defined"
+[ -z "${PGEVOLVE_EVOLUTIONS_PATH}"  ] && error 2 "\$PGEVOLVE_EVOLUTIONS_PATH is not defined"
 
 tables=$(psql -t -c "SELECT tablename FROM pg_catalog.pg_tables
   WHERE schemaname != 'pg_catalog'
@@ -21,7 +20,7 @@ tables=$(psql -t -c "SELECT tablename FROM pg_catalog.pg_tables
 
 if [ -z "$(echo ${tables})" ] || [ ! -z "$(echo ${tables} | grep 'pg_evolve_')" ]; then
   # Install pg-evolve
-  find "${install_path}" -name "*.sql" | sort | while read script; do
+  find "${PGEVOLVE_INSTALL_PATH}" -name "*.sql" | sort | while read script; do
     psql -f "${script}"
   done
 else
@@ -29,14 +28,14 @@ else
 fi
 
 evolutions_applied=$(psql -t -AF ',' -c "SELECT * FROM pg_evolve_get_evolutions();")
-evolutions=$(find "${evolutions_path}" -name "*.sql" -exec basename {} \; | sort)
+evolutions=$(find "${PGEVOLVE_EVOLUTIONS_PATH}" -name "*.sql" -exec basename {} \; | sort)
 
 evolutions_count=$(printf "%s\n" "${evolutions}" | wc -l)
 
 for e in $(seq 1 ${evolutions_count})
 do
   evolution_local="$(printf "%s\n" ${evolutions} | sed -n "${e}p")"
-  evolution_local_file="${evolutions_path}/${evolution_local}"
+  evolution_local_file="${PGEVOLVE_EVOLUTIONS_PATH}/${evolution_local}"
   evolution_local_checksum="$(sha256sum "${evolution_local_file}" | cut -d ' ' -f1)"
   evolution_remote_row="$(printf "%s\n" ${evolutions_applied} | sed -n "${e}p")"
   evolution_remote="$(echo ${evolution_remote_row} | cut -d ',' -f1)"
