@@ -27,6 +27,8 @@ else
   error 3 "Database was not created with pg-evolve! Aborting"
 fi
 
+[ ! -d "${PGEVOLVE_EVOLUTIONS_PATH}" ] && echo "No evolutions found in ${PGEVOLVE_EVOLUTIONS_PATH}. Exiting" && exit
+
 evolutions_applied=$(psql -t -AF ',' -c "SELECT * FROM pg_evolve_get_evolutions();")
 evolutions=$(find "${PGEVOLVE_EVOLUTIONS_PATH}" -name "*.sql" -exec basename {} \; | sort)
 
