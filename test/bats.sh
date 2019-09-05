@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 test_db="pg_evolve_test"
+major=0
+minor=3
 
 setup () {
   docker run --rm \
@@ -101,4 +103,179 @@ setup () {
 
   [ ! -z "$(echo ${result1} | grep "ERROR: Database was not created with pg-evolve! Aborting")" ] \
   && [ -z "$(echo ${result2} | grep "pg_evolve_version")"  ]
+}
+
+@test "should set the pg-evolve version" {
+  expected="0.3"
+
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    pg-evolve:latest
+
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      --network=pg-evolve_default \
+      postgres:alpine psql -tAF '.' -c 'SELECT * FROM pg_evolve_version'
+  )"
+  [ "${result}" = "${expected}" ]
+}
+
+@test "pg_evolve_needs_upgrade should return true for higher minor version" {
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    pg-evolve:latest
+
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      --network=pg-evolve_default \
+      postgres:alpine psql -tA -c "SELECT * FROM pg_evolve_needs_upgrade(${major},$((${minor}+1)))"
+  )"
+  [ "${result}" = "t" ]
+}
+
+@test "pg_evolve_needs_upgrade should return false for lower minor version" {
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    pg-evolve:latest
+
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      --network=pg-evolve_default \
+      postgres:alpine psql -tA -c "SELECT * FROM pg_evolve_needs_upgrade(${major},$((${minor}-1)))"
+  )"
+  [ "${result}" = "f" ]
+}
+
+@test "pg_evolve_needs_upgrade should return false for an equal version" {
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    pg-evolve:latest
+
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      --network=pg-evolve_default \
+      postgres:alpine psql -tA -c "SELECT * FROM pg_evolve_needs_upgrade(${major},${minor})"
+  )"
+  [ "${result}" = "f" ]
+}
+
+@test "pg_evolve_needs_upgrade should return true for a higher version" {
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    pg-evolve:latest
+
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      --network=pg-evolve_default \
+      postgres:alpine psql -tA -c "SELECT * FROM pg_evolve_needs_upgrade($((${major}+1)),$((${minor}-1)))"
+  )"
+  [ "${result}" = "t" ]
+
+
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      --network=pg-evolve_default \
+      postgres:alpine psql -tA -c "SELECT * FROM pg_evolve_needs_upgrade($((${major}+1)),${minor})"
+  )"
+  [ "${result}" = "t" ]
+
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      --network=pg-evolve_default \
+      postgres:alpine psql -tA -c "SELECT * FROM pg_evolve_needs_upgrade($((${major}+1)),$((${minor}+1)))"
+  )"
+  [ "${result}" = "t" ]
+}
+
+@test "pg_evolve_applied should add an entry to the pg_evolve_evolutions table" {
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    pg-evolve:latest
+
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      --network=pg-evolve_default \
+      postgres:alpine psql -tA -c "SELECT pg_evolve_applied('1_test.sql', '0.0.0', 'ab42898d4ee56d928b2652f582d92adb34c6cd28039167510aec35f3c9b32b55'); SELECT filename, releaseNumber, sha256 FROM pg_evolve_evolutions;"
+  )"
+  [ "${result}" = "1_test.sql|0.0.0|ab42898d4ee56d928b2652f582d92adb34c6cd28039167510aec35f3c9b32b55" ]
+}
+
+@test "pg_evolve_get_evolutions should return filenames and checksums" {
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    pg-evolve:latest > /dev/null
+
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      --network=pg-evolve_default \
+      postgres:alpine psql -tAR ',' -c '
+      SELECT pg_evolve_applied('"'"'1_test.sql'"'"', '"'"'0.0.0'"'"', '"'"'ab42898d4ee56d928b2652f582d92adb34c6cd28039167510aec35f3c9b32b55'"'"');
+      SELECT pg_evolve_applied('"'"'2_test.sql'"'"', '"'"'0.0.0'"'"', '"'"'1f03fe9f6bde5f2b618ad0aaf6ff5933680291d956a63d87293e854cfb412330'"'"');
+      SELECT * FROM pg_evolve_get_evolutions();'
+  )"
+  [ "${result}" = "1_test.sql|ab42898d4ee56d928b2652f582d92adb34c6cd28039167510aec35f3c9b32b55,2_test.sql|1f03fe9f6bde5f2b618ad0aaf6ff5933680291d956a63d87293e854cfb412330" ]
 }
