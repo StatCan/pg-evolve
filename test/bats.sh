@@ -19,7 +19,7 @@ setup () {
     postgres:alpine psql -c "CREATE DATABASE \"${test_db}\" WITH OWNER \"${PGUSER}\"" > /dev/null
 }
 
-@test "Installing pg-evolve on empty database succeeds" {
+@test "should install on empty database" {
   docker run --rm \
   -e PGHOST=${PGHOST} \
   -e PGUSER=${PGUSER} \
@@ -40,7 +40,7 @@ setup () {
   [ ! -z "$(echo ${result} | grep "pg_evolve_version")" ]
 }
 
-@test "Installing pg-evolve on non-empty database created with pg-evolve succeeds" {
+@test "should install on non-empty database created with pg-evolve" {
   docker run --rm \
     -e PGHOST=${PGHOST} \
     -e PGUSER=${PGUSER} \
@@ -70,7 +70,7 @@ setup () {
     [ ! -z "$(echo ${result} | grep "pg_evolve_version")" ]
 }
 
-@test "Installing pg-evolve on non-empty database not created with pg-evolve fails" {
+@test "should not install on non-empty database not created with pg-evolve" {
   docker run --rm \
     -e PGHOST=${PGHOST} \
     -e PGUSER=${PGUSER} \
