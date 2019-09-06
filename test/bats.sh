@@ -319,3 +319,169 @@ setup () {
   )"
   [ "${result}" = "1_test.sql|ab42898d4ee56d928b2652f582d92adb34c6cd28039167510aec35f3c9b32b55,2_test.sql|1f03fe9f6bde5f2b618ad0aaf6ff5933680291d956a63d87293e854cfb412330" ]
 }
+
+@test "should ignore files without the .sql extension" {
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      --network=pg-evolve_default \
+      pg-evolve:latest
+  )"
+  [ ! -z "$(echo ${result} | grep "No evolutions found")" ]
+}
+
+@test "should not error when no evolutions are found" {
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      --network=pg-evolve_default \
+      pg-evolve:latest
+  )"
+  [ ! -z "$(echo ${result} | grep "No evolutions found")" ]
+}
+
+@test "should apply evolution" {
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    -v ${HOSTPWD}/test/2:/opt/pg-evolve/evolutions \
+    pg-evolve:latest
+
+    result="$(
+      docker run --rm \
+        -e PGHOST=${PGHOST} \
+        -e PGUSER=${PGUSER} \
+        -e PGPASSWORD=${PGPASSWORD} \
+        -e PGDATABASE="${test_db}" \
+        --network=pg-evolve_default \
+        postgres:alpine psql -tAF ',' -c '\dt'
+    )"
+    [ ! -z "$(echo ${result} | grep "person")" ]
+}
+
+@test "should add the evolution entry to the evolution table" {
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    -v ${HOSTPWD}/test/2:/opt/pg-evolve/evolutions \
+    pg-evolve:latest
+
+    result="$(
+      docker run --rm \
+        -e PGHOST=${PGHOST} \
+        -e PGUSER=${PGUSER} \
+        -e PGPASSWORD=${PGPASSWORD} \
+        -e PGDATABASE="${test_db}" \
+        --network=pg-evolve_default \
+        postgres:alpine psql -tA -c 'SELECT filename, releaseNumber, sha256 FROM pg_evolve_evolutions'
+    )"
+    [ "${result}" = "1_initial.sql||4db0fb1871675cd4adb096a3d40dc94dada4ee595046ad0c7ffb27d3de0bca9a" ]
+}
+
+@test "should skip already applied evolutions" {
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    -v ${HOSTPWD}/test/18/1_initial.sql:/opt/pg-evolve/evolutions/1_initial.sql \
+    pg-evolve:latest
+
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      --network=pg-evolve_default \
+      -v ${HOSTPWD}/test/18:/opt/pg-evolve/evolutions \
+      pg-evolve:latest
+  )"
+  [ ! -z "$(echo ${result} | grep "Evolution 1_initial.sql already applied. Skipping.")" ]
+}
+
+@test "should error if the evolution sequence is different" {
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    -v ${HOSTPWD}/test/18:/opt/pg-evolve/evolutions \
+    pg-evolve:latest
+
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      --network=pg-evolve_default \
+      -v ${HOSTPWD}/test/18/1_initial.sql:/opt/pg-evolve/evolutions/1_initial.sql \
+      -v ${HOSTPWD}/test/18/2_test.sql:/opt/pg-evolve/evolutions/2_different.sql \
+      pg-evolve:latest || true
+  )"
+  [ ! -z "$(echo ${result} | grep "ERROR: Local evolution sequence number 2 (2_different.sql) does not match remote evolution: 2_test.sql")" ]
+}
+
+@test "should error if an evolution checksum is different" {
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    -v ${HOSTPWD}/test/18:/opt/pg-evolve/evolutions \
+    pg-evolve:latest
+
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      --network=pg-evolve_default \
+      -v ${HOSTPWD}/test/20/1_initial.sql:/opt/pg-evolve/evolutions/1_initial.sql \
+      -v ${HOSTPWD}/test/20/2_test_different:/opt/pg-evolve/evolutions/2_test.sql \
+      pg-evolve:latest || true
+  )"
+  [ ! -z "$(echo ${result} | grep "ERROR: Local evolution sequence number 2 (2_test.sql) does not match remote checksum! Aborting")" ]
+}
+
+@test "should ignore different checksum if PGEVOLVE_SKIPCHECKSUMCHECK is set" {
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    -v ${HOSTPWD}/test/18:/opt/pg-evolve/evolutions \
+    pg-evolve:latest
+
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      -e PGEVOLVE_SKIPCHECKSUMCHECK=true \
+      --network=pg-evolve_default \
+      -v ${HOSTPWD}/test/20/1_initial.sql:/opt/pg-evolve/evolutions/1_initial.sql \
+      -v ${HOSTPWD}/test/20/2_test_different:/opt/pg-evolve/evolutions/2_test.sql \
+      pg-evolve:latest || true
+  )"
+  [ ! -z "$(echo ${result} | grep "Evolution 2_test.sql already applied. Skipping.")" ]
+}
