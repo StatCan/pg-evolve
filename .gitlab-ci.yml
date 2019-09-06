@@ -1,0 +1,42 @@
+image: alpine:latest
+
+variables:
+  DOCKER_TLS_CERTDIR: ""
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+
+stages:
+  - test
+  - build
+
+unit:
+  stage: test
+  image: node
+  image: docker:stable-git
+  services:
+  - docker:stable-dind
+  script:
+    - apk update && apk add curl py-pip python-dev libffi-dev openssl-dev gcc libc-dev make
+    - pip install docker-compose
+    - setup_docker
+    - docker-compose up --build --exit-code-from test
+
+build:
+  stage: build
+  image: docker:stable-git
+  services:
+  - docker:stable-dind
+  script:
+    - setup_docker
+    - build
+  only:
+    - branches
+
+# ---------------------------------------------------------------------------
+
+before_script:
+  - apk update && apk add git
+  - for script in ci/*; do source $script; done
