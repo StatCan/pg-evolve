@@ -105,6 +105,46 @@ setup () {
   && [ -z "$(echo ${result2} | grep "pg_evolve_version")"  ]
 }
 
+@test "should error if PGHOST is not set or empty" {
+  result="$(
+    docker run --rm \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      --network=pg-evolve_default \
+      pg-evolve:latest || true
+  )"
+  [ "${result}" = "ERROR: \$PGHOST is not defined" ]
+}
+
+@test "should error if PGEVOLVE_INSTALL_PATH is not set or empty" {
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      -e PGEVOLVE_INSTALL_PATH="" \
+      --network=pg-evolve_default \
+      pg-evolve:latest || true
+  )"
+  [ "${result}" = "ERROR: \$PGEVOLVE_INSTALL_PATH is not defined" ]
+}
+
+@test "should error if PGEVOLVE_EVOLUTIONS_PATH is not set or empty" {
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      -e PGEVOLVE_EVOLUTIONS_PATH="" \
+      --network=pg-evolve_default \
+      pg-evolve:latest || true
+  )"
+  [ "${result}" = "ERROR: \$PGEVOLVE_EVOLUTIONS_PATH is not defined" ]
+}
+
 @test "should set the pg-evolve version" {
   expected="0.3"
 
