@@ -485,3 +485,58 @@ setup () {
   )"
   [ ! -z "$(echo ${result} | grep "Evolution 2_test.sql already applied. Skipping.")" ]
 }
+
+@test "should not add an entry for evolutions that fail" {
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    -v ${HOSTPWD}/test/22:/opt/pg-evolve/evolutions \
+    pg-evolve:latest 2> /dev/null || true
+
+    result="$(
+      docker run --rm \
+        -e PGHOST=${PGHOST} \
+        -e PGUSER=${PGUSER} \
+        -e PGPASSWORD=${PGPASSWORD} \
+        -e PGDATABASE="${test_db}" \
+        --network=pg-evolve_default \
+        postgres:alpine psql -tA -c 'SELECT filename, releaseNumber, sha256 FROM pg_evolve_evolutions'
+    )"
+    [ -z "$(echo ${result} | grep '2_test.sql')" ]
+}
+
+@test "should apply a good evolution after a bad one failed" {
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    -v ${HOSTPWD}/test/23/1_initial.sql:/opt/pg-evolve/evolutions/1_initial.sql \
+    -v ${HOSTPWD}/test/23/2_test_bad.sql:/opt/pg-evolve/evolutions/2_test.sql \
+    pg-evolve:latest 2> /dev/null || true
+
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    -v ${HOSTPWD}/test/23/1_initial.sql:/opt/pg-evolve/evolutions/1_initial.sql \
+    -v ${HOSTPWD}/test/23/2_test_good.sql:/opt/pg-evolve/evolutions/2_test.sql \
+    pg-evolve:latest
+
+    result="$(
+      docker run --rm \
+        -e PGHOST=${PGHOST} \
+        -e PGUSER=${PGUSER} \
+        -e PGPASSWORD=${PGPASSWORD} \
+        -e PGDATABASE="${test_db}" \
+        --network=pg-evolve_default \
+        postgres:alpine psql -tA -c 'SELECT filename, releaseNumber, sha256 FROM pg_evolve_evolutions'
+    )"
+    [ ! -z "$echo ${result} | grep 2_test.sql" ]
+}
