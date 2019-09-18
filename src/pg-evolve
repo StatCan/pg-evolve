@@ -43,7 +43,7 @@ do
   evolution_remote_checksum="$(echo ${evolution_remote_row} | cut -d ',' -f2)"
   if [ -z "${evolution_remote}" ]; then
     echo "Applying ${evolution_local}"
-    psql -v "ON_ERROR_STOP=true" -f "${evolution_local_file}" \
+    psql -v "ON_ERROR_STOP=true" -1 -f "${evolution_local_file}" \
     && psql -c "SELECT pg_evolve_applied('${evolution_local}', '${VERSION}', '${evolution_local_checksum}')" > /dev/null
   elif [ "${evolution_local}" = "${evolution_remote}" ]; then
     if [ "${PGEVOLVE_SKIPCHECKSUMCHECK}" = "true" ] || [ "${evolution_local_checksum}" = "${evolution_remote_checksum}" ]; then
