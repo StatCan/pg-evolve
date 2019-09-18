@@ -540,3 +540,34 @@ setup () {
     )"
     [ ! -z "$echo ${result} | grep 2_test.sql" ]
 }
+
+@test "should revert failing migrations" {
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    -v ${HOSTPWD}/test/24/1_initial.sql:/opt/pg-evolve/evolutions/1_initial.sql \
+    pg-evolve:latest
+
+  docker run --rm \
+    -e PGHOST=${PGHOST} \
+    -e PGUSER=${PGUSER} \
+    -e PGPASSWORD=${PGPASSWORD} \
+    -e PGDATABASE="${test_db}" \
+    --network=pg-evolve_default \
+    -v ${HOSTPWD}/test/24:/opt/pg-evolve/evolutions \
+    pg-evolve:latest 2> /dev/null || true
+
+  result="$(
+    docker run --rm \
+      -e PGHOST=${PGHOST} \
+      -e PGUSER=${PGUSER} \
+      -e PGPASSWORD=${PGPASSWORD} \
+      -e PGDATABASE="${test_db}" \
+      --network=pg-evolve_default \
+      postgres:alpine psql -A --pset footer -c 'SELECT * FROM person'
+  )"
+  [ "${result}" = "id|firstname|lastname" ]
+}
