@@ -387,7 +387,7 @@ setup () {
         --network=pg-evolve_default \
         postgres:alpine psql -tA -c 'SELECT filename, releaseNumber, sha256 FROM pg_evolve_evolutions'
     )"
-    [ "${result}" = "1_initial.sql||4db0fb1871675cd4adb096a3d40dc94dada4ee595046ad0c7ffb27d3de0bca9a" ]
+    [ "${result}" = "001_initial.sql||4db0fb1871675cd4adb096a3d40dc94dada4ee595046ad0c7ffb27d3de0bca9a" ]
 }
 
 @test "should skip already applied evolutions" {
@@ -397,7 +397,7 @@ setup () {
     -e PGPASSWORD=${PGPASSWORD} \
     -e PGDATABASE="${test_db}" \
     --network=pg-evolve_default \
-    -v ${HOSTPWD}/test/18/1_initial.sql:/opt/pg-evolve/evolutions/1_initial.sql \
+    -v ${HOSTPWD}/test/18/001_initial.sql:/opt/pg-evolve/evolutions/001_initial.sql \
     pg-evolve:latest
 
   result="$(
@@ -410,7 +410,7 @@ setup () {
       -v ${HOSTPWD}/test/18:/opt/pg-evolve/evolutions \
       pg-evolve:latest
   )"
-  [ ! -z "$(echo ${result} | grep "Evolution 1_initial.sql already applied. Skipping.")" ]
+  [ ! -z "$(echo ${result} | grep "Evolution 001_initial.sql already applied. Skipping.")" ]
 }
 
 @test "should error if the evolution sequence is different" {
@@ -430,11 +430,11 @@ setup () {
       -e PGPASSWORD=${PGPASSWORD} \
       -e PGDATABASE="${test_db}" \
       --network=pg-evolve_default \
-      -v ${HOSTPWD}/test/18/1_initial.sql:/opt/pg-evolve/evolutions/1_initial.sql \
-      -v ${HOSTPWD}/test/18/2_test.sql:/opt/pg-evolve/evolutions/2_different.sql \
+      -v ${HOSTPWD}/test/18/001_initial.sql:/opt/pg-evolve/evolutions/001_initial.sql \
+      -v ${HOSTPWD}/test/18/002_test.sql:/opt/pg-evolve/evolutions/002_different.sql \
       pg-evolve:latest || true
   )"
-  [ ! -z "$(echo ${result} | grep "ERROR: Local evolution sequence number 2 (2_different.sql) does not match remote evolution: 2_test.sql")" ]
+  [ ! -z "$(echo ${result} | grep "ERROR: Local evolution sequence number 2 (002_different.sql) does not match remote evolution: 002_test.sql")" ]
 }
 
 @test "should error if an evolution checksum is different" {
@@ -454,11 +454,11 @@ setup () {
       -e PGPASSWORD=${PGPASSWORD} \
       -e PGDATABASE="${test_db}" \
       --network=pg-evolve_default \
-      -v ${HOSTPWD}/test/20/1_initial.sql:/opt/pg-evolve/evolutions/1_initial.sql \
-      -v ${HOSTPWD}/test/20/2_test_different:/opt/pg-evolve/evolutions/2_test.sql \
+      -v ${HOSTPWD}/test/20/001_initial.sql:/opt/pg-evolve/evolutions/001_initial.sql \
+      -v ${HOSTPWD}/test/20/002_test_different:/opt/pg-evolve/evolutions/002_test.sql \
       pg-evolve:latest || true
   )"
-  [ ! -z "$(echo ${result} | grep "ERROR: Local evolution sequence number 2 (2_test.sql) does not match remote checksum! Aborting")" ]
+  [ ! -z "$(echo ${result} | grep "ERROR: Local evolution sequence number 2 (002_test.sql) does not match remote checksum! Aborting")" ]
 }
 
 @test "should ignore different checksum if PGEVOLVE_SKIPCHECKSUMCHECK is set" {
@@ -479,11 +479,11 @@ setup () {
       -e PGDATABASE="${test_db}" \
       -e PGEVOLVE_SKIPCHECKSUMCHECK=true \
       --network=pg-evolve_default \
-      -v ${HOSTPWD}/test/20/1_initial.sql:/opt/pg-evolve/evolutions/1_initial.sql \
-      -v ${HOSTPWD}/test/20/2_test_different:/opt/pg-evolve/evolutions/2_test.sql \
+      -v ${HOSTPWD}/test/20/001_initial.sql:/opt/pg-evolve/evolutions/001_initial.sql \
+      -v ${HOSTPWD}/test/20/002_test_different:/opt/pg-evolve/evolutions/002_test.sql \
       pg-evolve:latest || true
   )"
-  [ ! -z "$(echo ${result} | grep "Evolution 2_test.sql already applied. Skipping.")" ]
+  [ ! -z "$(echo ${result} | grep "Evolution 002_test.sql already applied. Skipping.")" ]
 }
 
 @test "should not add an entry for evolutions that fail" {
@@ -505,7 +505,7 @@ setup () {
         --network=pg-evolve_default \
         postgres:alpine psql -tA -c 'SELECT filename, releaseNumber, sha256 FROM pg_evolve_evolutions'
     )"
-    [ -z "$(echo ${result} | grep '2_test.sql')" ]
+    [ -z "$(echo ${result} | grep '002_test.sql')" ]
 }
 
 @test "should apply a good evolution after a bad one failed" {
@@ -515,8 +515,8 @@ setup () {
     -e PGPASSWORD=${PGPASSWORD} \
     -e PGDATABASE="${test_db}" \
     --network=pg-evolve_default \
-    -v ${HOSTPWD}/test/23/1_initial.sql:/opt/pg-evolve/evolutions/1_initial.sql \
-    -v ${HOSTPWD}/test/23/2_test_bad.sql:/opt/pg-evolve/evolutions/2_test.sql \
+    -v ${HOSTPWD}/test/23/001_initial.sql:/opt/pg-evolve/evolutions/001_initial.sql \
+    -v ${HOSTPWD}/test/23/002_test_bad.sql:/opt/pg-evolve/evolutions/002_test.sql \
     pg-evolve:latest 2> /dev/null || true
 
   docker run --rm \
@@ -525,8 +525,8 @@ setup () {
     -e PGPASSWORD=${PGPASSWORD} \
     -e PGDATABASE="${test_db}" \
     --network=pg-evolve_default \
-    -v ${HOSTPWD}/test/23/1_initial.sql:/opt/pg-evolve/evolutions/1_initial.sql \
-    -v ${HOSTPWD}/test/23/2_test_good.sql:/opt/pg-evolve/evolutions/2_test.sql \
+    -v ${HOSTPWD}/test/23/001_initial.sql:/opt/pg-evolve/evolutions/001_initial.sql \
+    -v ${HOSTPWD}/test/23/002_test_good.sql:/opt/pg-evolve/evolutions/002_test.sql \
     pg-evolve:latest
 
     result="$(
@@ -538,7 +538,7 @@ setup () {
         --network=pg-evolve_default \
         postgres:alpine psql -tA -c 'SELECT filename, releaseNumber, sha256 FROM pg_evolve_evolutions'
     )"
-    [ ! -z "$echo ${result} | grep 2_test.sql" ]
+    [ ! -z "$echo ${result} | grep 002_test.sql" ]
 }
 
 @test "should revert failing migrations" {
@@ -548,7 +548,7 @@ setup () {
     -e PGPASSWORD=${PGPASSWORD} \
     -e PGDATABASE="${test_db}" \
     --network=pg-evolve_default \
-    -v ${HOSTPWD}/test/24/1_initial.sql:/opt/pg-evolve/evolutions/1_initial.sql \
+    -v ${HOSTPWD}/test/24/001_initial.sql:/opt/pg-evolve/evolutions/001_initial.sql \
     pg-evolve:latest
 
   docker run --rm \
